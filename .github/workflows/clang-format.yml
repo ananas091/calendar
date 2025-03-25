@@ -1,0 +1,35 @@
+name: Clang Format Auto Fix
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  clang-format-fix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+
+      - name: Apply clang-format fixes
+        run: |
+          FILES=$(find . -name '*.cpp' -o -name '*.h')
+          clang-format -i $FILES
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Apply clang-format fixes" || echo "No changes to commit"
+          git push
