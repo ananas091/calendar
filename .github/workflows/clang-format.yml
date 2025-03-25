@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0  # Загружаем полную историю
+          fetch-depth: 0  # Загружает полную историю, иначе могут быть ошибки с пушем
 
       - name: Install clang-format
         run: sudo apt-get install -y clang-format
@@ -34,6 +34,7 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout main  # Возвращаемся на main (фикс ошибки)
           git add .
           git commit -m "Apply clang-format fixes" || echo "No changes to commit"
-          git push origin HEAD:main  # Пушим в main, не переключая ветку
+          git push origin main
