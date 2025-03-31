@@ -7,6 +7,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define LISTEN_BACKLOG 5
+#define SERVER_PORT 9191
+#define SERVER_IP "127.0.0.1"
+#define GREETING_MESSAGE "Hello world!\n"
+
 int main() {
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) {
@@ -17,8 +22,8 @@ int main() {
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(9191);
-    if (inet_pton(AF_INET, "127.0.0.1", &addr.sin_addr) <= 0) {
+    addr.sin_port = htons(SERVER_PORT);
+    if (inet_pton(AF_INET, SERVER_IP, &addr.sin_addr) <= 0) {
         perror("Set ip failed\n");
         exit(EXIT_FAILURE);
     }
@@ -28,7 +33,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 5) == -1) {
+    if (listen(server_fd, LISTEN_BACKLOG) == -1) {
         perror("Listen failed\n");
         exit(EXIT_FAILURE);
     }
@@ -39,15 +44,21 @@ int main() {
         int client_fd = accept(server_fd, (struct sockaddr *)&addr, &addrlen);
         if (client_fd == -1) {
             perror("Accept failed\n");
-            exit(EXIT_FAILURE);
+            continue;
         }
 
-        if (write(client_fd, "Hello world!\n", sizeof("Hello world!\n")) == -1) {
+        // TODO: handle partial writes
+        if (write(client_fd, GREETING_MESSAGE, sizeof(GREETING_MESSAGE)) == -1) {
             perror("Write failed\n");
         }
 
-        close(client_fd);
+        if (close(client_fd) == -1) {
+            perror("Close failed client_fd\n");
+        }
     }
-    close(server_fd);
+
+    if (close(server_fd) == -1) {
+        perror("Close failed server_fd\n");
+    }
     return 0;
 }
