@@ -9,7 +9,7 @@
 
 #define LISTEN_BACKLOG 5
 #define SERVER_PORT 9191
-#define SERVER_IP "127.0.0.1"
+#define SERVER_IP "0.0.0.0"
 #define GREETING_MESSAGE "Hello world!\n"
 
 int main() {
