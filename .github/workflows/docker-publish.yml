@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build-and-push:
@@ -26,9 +29,15 @@ jobs:
         run: |
           echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
           echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "IS_PR=${{ github.event_name == 'pull_request' }}" >> $GITHUB_ENV
 
       - name: Build and push Docker image
         run: |
+          TAG_SUFFIX="${TODAY}-${SHORT_SHA}"
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/calendar"
+
           docker buildx build \
             --push \
-            --tag ${{ secrets.DOCKERHUB_USERNAME }}/calendar:${TODAY}-${SHORT_SHA} .
+            --tag ${IMAGE_NAME}:${TAG_SUFFIX} \
+            --tag ${IMAGE_NAME}:latest \
+            .
