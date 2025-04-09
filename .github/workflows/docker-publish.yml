@@ -4,13 +4,9 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
   build-and-push:
-    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-22.04
 
     steps:
@@ -29,10 +25,10 @@ jobs:
       - name: Set env variables
         run: |
           echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo "COMMIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calendar:$TODAY_$COMMIT_SHA
+        run: |
+          docker buildx build \
+            --push \
+            --tag ${{ secrets.DOCKERHUB_USERNAME }}/calendar:${TODAY}-${SHORT_SHA} .
