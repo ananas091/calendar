@@ -1,15 +1,15 @@
 name: Build and Push Docker Image
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
-    types:
-      - closed
 
 jobs:
   build-and-push:
-    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-22.04
 
     steps:
@@ -25,8 +25,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set env variables
+        run: |
+          echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "IS_PR=${{ github.event_name == 'pull_request' }}" >> $GITHUB_ENV
+
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calendar:latest
+        run: |
+          TAG_SUFFIX="${TODAY}-${SHORT_SHA}"
+          IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/calendar"
+
+          docker buildx build \
+            --push \
+            --tag ${IMAGE_NAME}:${TAG_SUFFIX} \
+            --tag ${IMAGE_NAME}:latest \
+            .

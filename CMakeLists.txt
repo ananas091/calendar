@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Добавляем путь к файлам, которые нужно проверить
-set(SOURCE_FILES ../src/main.cpp)
+set(SOURCE_FILES ../src/main.cpp ../src/calendar_print.h ../src/calendar_print.cpp)
 
 # Цель для запуска clang-format
 add_custom_target(
@@ -28,7 +28,7 @@ target_compile_options(calendar PRIVATE
     -flto -O2
     -D_FORTIFY_SOURCE=2
     -fstack-protector-strong -fstack-clash-protection
-    -Wall -Wextra -Wunused-result -Wformat=2 -Wstrict-prototypes -Wmissing-declarations -Wswitch-unreachable -Wshadow
+    -Wall -Wextra -Wunused-result -Wformat=2 -Wmissing-declarations -Wswitch-unreachable -Wshadow
     -Werror
     -fdiagnostics-color=always
 )
