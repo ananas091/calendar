@@ -10,6 +10,7 @@
 #include <string_view>
 
 std::string PrintMonth(int year, int month);
+std::string PrintYear(int year);
 
 constexpr bool isLeapYear(int year);
 
