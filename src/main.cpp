@@ -1,74 +1,76 @@
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <boost/asio.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <iostream>
+#include <unordered_map>
 
 #include "calendar_print.h"
+#include "utils.h"
 
-#define LISTEN_BACKLOG 5
-#define SERVER_PORT 9191
-#define SERVER_IP "0.0.0.0"
-#define GREETING_MESSAGE "Hello world!\n"
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace asio = boost::asio;
+using tcp = asio::ip::tcp;
 
 int main() {
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd == -1) {
-        perror("Socket failed");
-        exit(EXIT_FAILURE);
-    }
+    try {
+        asio::io_context ioc;
 
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(SERVER_PORT);
-    if (inet_pton(AF_INET, SERVER_IP, &addr.sin_addr) <= 0) {
-        perror("Set ip failed");
-        exit(EXIT_FAILURE);
-    }
+        tcp::acceptor acceptor{ioc, {tcp::v4(), 8080}};
+        std::cout << "Сервер слушает порт 8080...\n";
 
-    if (bind(server_fd, (struct sockaddr *)&addr, sizeof addr) == -1) {
-        perror("Bind failed");
-        exit(EXIT_FAILURE);
-    }
+        while (true) {
+            tcp::socket socket{ioc};
+            acceptor.accept(socket);
 
-    if (listen(server_fd, LISTEN_BACKLOG) == -1) {
-        perror("Listen failed");
-        exit(EXIT_FAILURE);
-    }
+            beast::flat_buffer buffer;
+            http::request<http::string_body> request;
+            http::read(socket, buffer, request);
 
-    socklen_t addrlen = sizeof addr;
+            std::string target = std::string(request.target());
+            std::string body;
 
-    while (1) {
-        int client_fd = accept(server_fd, (struct sockaddr *)&addr, &addrlen);
-        if (client_fd == -1) {
-            perror("Accept failed");
-            continue;
-        }
+            auto pos = target.find('?');
+            std::string path = target.substr(0, pos);
+            std::string query = (pos != std::string::npos) ? target.substr(pos + 1) : "";
+            auto params = ParseQuery(query);
 
-        std::string message = PrintMonth(2025, 4);
-        ssize_t remaining_bytes = message.size();
-        while (remaining_bytes > 0) {
-            ssize_t sended_bytes =
-                write(client_fd, message.c_str() + (message.size() - remaining_bytes), remaining_bytes);
+            int year = 1970, month = 1;
 
-            if (sended_bytes == -1) {
-                perror("Write failed");
-                break;
+            if (path == "/calendar/month") {
+                if (params.count("year")) {
+                    year = std::stoi(params["year"]);
+                }
+                if (params.count("month")) {
+                    month = std::stoi(params["month"]);
+                }
+                body = PrintMonth(year, month);
+            } else if (path == "/calendar/year") {
+                if (params.count("year")) {
+                    year = std::stoi(params["year"]);
+                }
+                body = PrintYear(year);
+            } else {
+                body = "Неизвестный путь. Используйте /calendar/month или /calendar/year.\n";
             }
-            remaining_bytes -= sended_bytes;
+
+            http::response<http::string_body> response{http::status::ok, request.version()};
+            response.set(http::field::server, "Calendar.SimpleServer");
+            response.set(http::field::content_type, "text/plain; charset=utf-8");
+            response.keep_alive(false);
+            response.body() = body;
+            response.prepare_payload();
+
+            http::write(socket, response);
+
+            beast::error_code ec;
+            socket.shutdown(tcp::socket::shutdown_send, ec);
         }
 
-        if (close(client_fd) == -1) {
-            perror("Close failed client_fd");
-        }
+    } catch (std::exception const& e) {
+        std::cerr << "Ошибка: " << e.what() << "\n";
+        return 1;
     }
 
-    if (close(server_fd) == -1) {
-        perror("Close failed server_fd");
-    }
     return 0;
 }
