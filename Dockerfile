@@ -15,7 +15,7 @@ RUN apt update && \
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
     conan install .. -s compiler.libcxx=libstdc++11 -s build_type=Release
-    
+
 # Скопировать файлы проекта внутрь контейнера
 COPY ./src /app/src
 COPY CMakeLists.txt /app/
@@ -33,7 +33,7 @@ USER www
 
 # Скопируем приложение со сборочного контейнера в директорию /app.
 # Не забываем также папку data, она пригодится.
-COPY --from=build /app/build/calendar /app/
+COPY --from=build /app/build/bin/calendar /app/
 
 # Запускаем игровой сервер
 ENTRYPOINT ["/app/calendar"] 
