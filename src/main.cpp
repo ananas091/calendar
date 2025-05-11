@@ -1,10 +1,12 @@
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
+#include <ctime>
 #include <iostream>
 #include <unordered_map>
 
 #include "calendar_print.h"
+#include "constants.h"
 #include "utils.h"
 
 namespace beast = boost::beast;
@@ -15,60 +17,44 @@ using tcp = asio::ip::tcp;
 int main() {
     try {
         asio::io_context ioc;
-
         tcp::acceptor acceptor{ioc, {tcp::v4(), 8080}};
         std::cout << "Сервер слушает порт 8080...\n";
 
         while (true) {
-            tcp::socket socket{ioc};
-            acceptor.accept(socket);
+            try {
+                tcp::socket socket{ioc};
+                boost::system::error_code accept_ec;
 
-            beast::flat_buffer buffer;
-            http::request<http::string_body> request;
-            http::read(socket, buffer, request);
-
-            std::string target = std::string(request.target());
-            std::string body;
-
-            auto pos = target.find('?');
-            std::string path = target.substr(0, pos);
-            std::string query = (pos != std::string::npos) ? target.substr(pos + 1) : "";
-            auto params = ParseQuery(query);
-
-            int year = 1970, month = 1;
-
-            if (path == "/calendar/month") {
-                if (params.count("year")) {
-                    year = std::stoi(params["year"]);
+                acceptor.accept(socket, accept_ec);
+                if (accept_ec) {
+                    std::cerr << "Ошибка accept: " << accept_ec.message() << "\n";
+                    continue;
                 }
-                if (params.count("month")) {
-                    month = std::stoi(params["month"]);
+
+                beast::flat_buffer buffer;
+                http::request<http::string_body> request;
+                beast::error_code read_ec;
+
+                http::read(socket, buffer, request, read_ec);
+                if (read_ec) {
+                    beast::error_code ignored_ec;
+                    http::write(socket,
+                                MakeErrorResponse(http::status::internal_server_error, "Ошибка чтения запроса", 11),
+                                ignored_ec);
+                    continue;
                 }
-                body = PrintMonth(year, month);
-            } else if (path == "/calendar/year") {
-                if (params.count("year")) {
-                    year = std::stoi(params["year"]);
-                }
-                body = PrintYear(year);
-            } else {
-                body = "Неизвестный путь. Используйте /calendar/month или /calendar/year.\n";
+
+                HandleRequest(socket, request);
+
+                beast::error_code shutdown_ec;
+                socket.shutdown(tcp::socket::shutdown_send, shutdown_ec);
+            } catch (const std::exception& e) {
+                std::cerr << "Ошибка при обработке соединения: " << e.what() << "\n";
             }
-
-            http::response<http::string_body> response{http::status::ok, request.version()};
-            response.set(http::field::server, "Calendar.SimpleServer");
-            response.set(http::field::content_type, "text/plain; charset=utf-8");
-            response.keep_alive(false);
-            response.body() = body;
-            response.prepare_payload();
-
-            http::write(socket, response);
-
-            beast::error_code ec;
-            socket.shutdown(tcp::socket::shutdown_send, ec);
         }
 
-    } catch (std::exception const& e) {
-        std::cerr << "Ошибка: " << e.what() << "\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Фатальная ошибка: " << e.what() << "\n";
         return 1;
     }
 
