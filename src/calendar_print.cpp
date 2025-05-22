@@ -43,3 +43,11 @@ std::string PrintMonth(int year, int month) {
     result << "\n";
     return result.str();
 }
+
+std::string PrintYear(int year) {
+    std::ostringstream result;
+    for (int month = 1; month <= 12; ++month) {
+        result << PrintMonth(year, month) << "\n";
+    }
+    return result.str();
+}
